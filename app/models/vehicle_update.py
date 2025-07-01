@@ -69,4 +69,7 @@ class ProcessingJob(Base):
     created_at = Column(DateTime, nullable=False, default=func.current_timestamp())
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    result_summary = Column(Text, nullable=True, comment="任务结果摘要") 
+    result_summary = Column(Text, nullable=True, comment="任务结果摘要")
+
+
+ 
