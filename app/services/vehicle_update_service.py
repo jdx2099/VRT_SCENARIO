@@ -14,7 +14,7 @@ from app.schemas.vehicle_update import (
     ChannelListSchema
 )
 from app.models.vehicle_update import Channel, Vehicle, VehicleChannelDetail, ProcessingJob
-from app.utils.channel_parsers import AutoHomeParser, BitAutoParser
+from app.utils.channel_parsers import AutoHomeParser
 from app.tasks.crawler_tasks import update_vehicle_data_async
 
 
@@ -38,7 +38,7 @@ class VehicleUpdateService:
         """
         return {
             1: AutoHomeParser,  # 汽车之家
-            2: BitAutoParser,   # 易车网
+            # 可以在这里添加更多渠道解析器
         }
     
     def _create_parser(self, channel_id: int):

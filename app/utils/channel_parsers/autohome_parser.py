@@ -220,8 +220,12 @@ class AutoHomeParser:
         brands = []
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            # 分批处理：先爬取A-E字母 (约2分钟)
-            for letter in ['A', 'B', 'C', 'D', 'E']:
+            # 爬取完整的26个字母 (约10分钟)
+            # 使用完整字母表以获取所有品牌
+            letters = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+            self._log_progress(f"开始爬取 {len(letters)} 个字母的品牌页面")
+            
+            for letter in letters:
                 try:
                     # 构建当前字母对应的URL
                     start_url = website_base_url.format(letter.lower())

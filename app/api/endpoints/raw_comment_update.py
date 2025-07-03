@@ -7,7 +7,8 @@ from typing import Dict, Any
 
 from app.services.raw_comment_update_service import raw_comment_update_service
 from app.schemas.raw_comment_update import (
-    RawCommentQueryRequest, RawCommentQueryResult
+    RawCommentQueryRequest, RawCommentQueryResult,
+    RawCommentCrawlRequest, RawCommentCrawlResult, RawCommentCrawlTaskSchema
 )
 from app.core.logging import app_logger
 
@@ -92,3 +93,97 @@ async def get_vehicle_comment_count(channel_id: int, identifier: str) -> Dict[st
     except Exception as e:
         app_logger.error(f"❌ 统计评论数量失败: {e}")
         raise HTTPException(status_code=500, detail=f"统计失败: {str(e)}")
+
+
+@router.post("/crawl", response_model=RawCommentCrawlTaskSchema)
+async def crawl_new_comments_async(crawl_request: RawCommentCrawlRequest) -> RawCommentCrawlTaskSchema:
+    """
+    异步爬取新的原始评论
+    
+    这个接口会：
+    1. 验证车型信息存在性
+    2. 启动Celery异步任务进行评论爬取
+    3. 立即返回任务ID和状态信息
+    4. 前端可通过任务状态接口查询进度
+    
+    Args:
+        crawl_request: 爬取请求参数，包含渠道ID、车型标识和可选的最大页数限制
+        
+    Returns:
+        异步任务信息，包含task_id用于后续状态查询
+    """
+    try:
+        app_logger.info(f"🚀 启动原始评论异步爬取: {crawl_request}")
+        
+        result = await raw_comment_update_service.crawl_new_comments_async(crawl_request)
+        
+        app_logger.info(f"✅ 原始评论爬取任务已启动: task_id={result.task_id}")
+        return result
+        
+    except ValueError as e:
+        app_logger.warning(f"⚠️ 原始评论爬取启动失败: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        app_logger.error(f"❌ 原始评论爬取任务启动错误: {e}")
+        raise HTTPException(status_code=500, detail="启动异步任务失败")
+
+
+@router.post("/crawl/direct", response_model=RawCommentCrawlResult)
+async def crawl_new_comments_direct(crawl_request: RawCommentCrawlRequest) -> RawCommentCrawlResult:
+    """
+    直接爬取新的原始评论（同步执行）
+    
+    这个接口会直接执行爬取过程并返回完整结果，主要用于：
+    - 开发和测试环境
+    - 小规模数据验证
+    - 调试和排错
+    
+    Args:
+        crawl_request: 爬取请求参数，包含渠道ID、车型标识和可选的最大页数限制
+        
+    Returns:
+        爬取结果，包含车型信息、爬取统计和新增评论列表
+    """
+    try:
+        app_logger.info(f"🔄 开始直接爬取原始评论: {crawl_request}")
+        
+        result = await raw_comment_update_service.crawl_new_comments(crawl_request)
+        
+        app_logger.info(f"✅ 原始评论直接爬取完成: 新增 {result.new_comments_count} 条评论")
+        return result
+        
+    except ValueError as e:
+        app_logger.warning(f"⚠️ 原始评论直接爬取失败: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        app_logger.error(f"❌ 原始评论直接爬取系统错误: {e}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
+
+
+@router.get("/tasks/{task_id}/status")
+async def get_crawl_task_status(task_id: str) -> Dict[str, Any]:
+    """
+    获取原始评论爬取任务状态
+    
+    Args:
+        task_id: 任务ID
+        
+    Returns:
+        任务状态信息
+    """
+    try:
+        from app.tasks.celery_app import celery_app
+        
+        task = celery_app.AsyncResult(task_id)
+        
+        return {
+            "task_id": task_id,
+            "status": task.status,
+            "result": task.result if task.status == "SUCCESS" else None,
+            "error": str(task.info) if task.status == "FAILURE" else None,
+            "progress": task.info.get("progress", 0) if isinstance(task.info, dict) else 0
+        }
+        
+    except Exception as e:
+        app_logger.error(f"❌ 获取任务状态失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取任务状态失败: {str(e)}")

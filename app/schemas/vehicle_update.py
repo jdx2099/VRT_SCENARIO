@@ -10,7 +10,6 @@ from enum import Enum
 class ChannelType(str, Enum):
     """渠道类型枚举"""
     AUTOHOME = "autohome"
-    BITAUTO = "bitauto"
     DONGCHEDI = "dongchedi"
 
 

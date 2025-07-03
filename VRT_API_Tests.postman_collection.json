@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "VRT 车型反馈系统 API",
+    "description": "VRT用户反馈解析系统的完整API测试集合",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "车型数据管理",
+      "item": [
+        {
+          "name": "获取支持的渠道列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/vehicle-update/channels",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vehicle-update", "channels"]
+            }
+          }
+        },
+        {
+          "name": "异步更新车型数据",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('task_id', response.task_id);",
+                  "    console.log('任务ID已保存:', response.task_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"channel_id\": 1,\n    \"force_update\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vehicle-update/update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vehicle-update", "update"]
+            }
+          }
+        },
+        {
+          "name": "查询车型更新任务状态",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/vehicle-update/sync/{{task_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vehicle-update", "sync", "{{task_id}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "原始评论管理",
+      "item": [
+        {
+          "name": "异步爬取新评论",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('task_id', response.task_id);",
+                  "    console.log('评论任务ID已保存:', response.task_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"channel_id\": 1,\n    \"identifier_on_channel\": \"s7855\",\n    \"max_pages\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/raw-comments/crawl",
+              "host": ["{{base_url}}"],
+              "path": ["api", "raw-comments", "crawl"]
+            }
+          }
+        },
+        {
+          "name": "查询评论爬取任务状态",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/raw-comments/tasks/{{task_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "raw-comments", "tasks", "{{task_id}}", "status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 

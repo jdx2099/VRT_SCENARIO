@@ -12,6 +12,13 @@ celery_app = Celery(
     include=['app.tasks.crawler_tasks']
 )
 
+# 手动导入任务模块以确保任务被注册
+try:
+    from app.tasks import crawler_tasks
+    print(f"✅ 任务模块已导入: {len([t for t in celery_app.tasks if not t.startswith('celery.')])} 个任务")
+except ImportError as e:
+    print(f"❌ 任务模块导入失败: {e}")
+
 # Celery配置
 celery_app.conf.update(
     task_serializer='json',
