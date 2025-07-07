@@ -70,6 +70,9 @@ class ProcessingJob(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     result_summary = Column(Text, nullable=True, comment="任务结果摘要")
+    
+    # 新增：版本管理字段
+    pipeline_version = Column(String(50), nullable=False, comment="处理管道版本号")
 
 
  

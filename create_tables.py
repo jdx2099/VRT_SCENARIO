@@ -16,7 +16,7 @@ async def create_tables():
         
         # 导入所有模型
         from app.core.database import engine, Base
-        from app.models import crawler, text_processing, llm_parsing, base
+        from app.models import vehicle_update, raw_comment_update, base
         from app.core.logging import app_logger
         
         # 测试数据库连接

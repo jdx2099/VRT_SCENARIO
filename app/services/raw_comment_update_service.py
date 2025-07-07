@@ -16,7 +16,7 @@ from tqdm import tqdm
 from app.core.database import AsyncSessionLocal
 from app.core.logging import app_logger
 from app.models.vehicle_update import VehicleChannelDetail, Channel
-from app.models.raw_comment_update import RawComment
+from app.models.raw_comment_update import RawComment, ProcessingStatus
 from app.schemas.raw_comment_update import (
     RawCommentQueryRequest, RawCommentQueryResult, 
     VehicleChannelInfo, RawCommentCrawlRequest, RawCommentCrawlResult,
@@ -561,7 +561,9 @@ class RawCommentUpdateService:
                     identifier_on_channel=comment_data["identifier_on_channel"],
                     comment_content=comment_data["comment_content"],
                     posted_at_on_channel=comment_data["posted_at_on_channel"],
-                    comment_source_url=comment_data["comment_source_url"]
+                    comment_source_url=comment_data["comment_source_url"],
+                    # 新增：设置处理状态为新建状态
+                    processing_status=ProcessingStatus.NEW
                 )
                 
                 db.add(comment)

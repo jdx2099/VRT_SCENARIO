@@ -44,6 +44,9 @@ class RawCommentInfo(BaseModel):
     posted_at_on_channel: Optional[datetime] = Field(None, description="评论在渠道上的发布时间")
     crawled_at: datetime = Field(..., description="评论爬取时间")
     
+    # 新增：处理状态字段
+    processing_status: str = Field(..., description="处理状态: new, processing, completed, failed, skipped")
+    
     class Config:
         from_attributes = True
 
@@ -150,3 +153,5 @@ class RawCommentCrawlTaskSchema(BaseModel):
                 "created_at": "2024-01-20T10:30:00"
             }
         }
+
+
