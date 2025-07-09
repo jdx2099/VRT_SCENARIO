@@ -7,7 +7,7 @@ from typing import Dict, Any
 from app.services.vehicle_update_service import vehicle_update_service
 from app.schemas.vehicle_update import (
     UpdateRequestSchema, UpdateResultSchema, UpdateTaskSchema,
-    ChannelListSchema
+    ChannelListSchema, ProcessingJobSchema
 )
 from app.core.logging import app_logger
 
@@ -111,4 +111,38 @@ async def get_sync_task_status(task_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         app_logger.error(f"❌ 获取任务状态失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取任务状态失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"获取任务状态失败: {str(e)}")
+
+
+@router.get("/jobs/{job_id}", response_model=ProcessingJobSchema)
+async def get_processing_job(job_id: int) -> ProcessingJobSchema:
+    """
+    获取processing_job记录详情
+    
+    Args:
+        job_id: 任务ID
+        
+    Returns:
+        processing_job详情
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.vehicle_update import ProcessingJob
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(ProcessingJob).where(ProcessingJob.job_id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            
+            if not job:
+                raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+            
+            return ProcessingJobSchema.from_orm(job)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        app_logger.error(f"❌ 获取任务详情失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取任务详情失败: {str(e)}") 

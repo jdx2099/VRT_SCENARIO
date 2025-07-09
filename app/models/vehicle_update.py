@@ -7,6 +7,19 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 
 
+class User(Base):
+    """用户表模型"""
+    __tablename__ = "users"
+    
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(255), nullable=False, unique=True, comment="登录用户名")
+    password_hash = Column(String(255), nullable=False, comment="哈希后的密码")
+    full_name = Column(String(255), nullable=True, comment="用户全名")
+    role = Column(String(50), nullable=False, default="user", comment="用户角色，如：user, admin")
+    created_at = Column(DateTime, nullable=False, default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+
 class Channel(Base):
     """渠道表模型"""
     __tablename__ = "channels"
@@ -66,13 +79,12 @@ class ProcessingJob(Base):
     job_type = Column(String(100), nullable=False, comment="任务类型，如：comment_processing, vehicle_consolidation")
     status = Column(String(50), nullable=False, default="pending", comment="任务状态: pending, running, completed, failed")
     parameters = Column(JSON, nullable=True, comment="任务启动时的参数")
+    created_by_user_id_fk = Column(Integer, ForeignKey("users.user_id"), nullable=True, comment="任务发起人")
     created_at = Column(DateTime, nullable=False, default=func.current_timestamp())
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     result_summary = Column(Text, nullable=True, comment="任务结果摘要")
-    
-    # 新增：版本管理字段
-    pipeline_version = Column(String(50), nullable=False, comment="处理管道版本号")
+    pipeline_version = Column(String(50), nullable=False, default="1.0.0", comment="处理管道版本号")
 
 
  

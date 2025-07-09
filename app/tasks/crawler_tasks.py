@@ -6,9 +6,53 @@ from celery import current_task
 from app.tasks.celery_app import celery_app
 from app.core.logging import app_logger
 from typing import Dict
+from datetime import datetime
+
+
+def _update_processing_job_status(job_id: int, status: str, started_at: bool = False, completed_at: bool = False, result_summary: str = None):
+    """
+    更新processing_job状态的辅助函数
+    
+    Args:
+        job_id: 任务ID
+        status: 新状态
+        started_at: 是否更新开始时间
+        completed_at: 是否更新完成时间
+        result_summary: 结果摘要
+    """
+    try:
+        # 导入数据库相关模块
+        from app.core.database import get_sync_session
+        from app.models.vehicle_update import ProcessingJob
+        from sqlalchemy import update
+        
+        # 构建更新字典
+        update_data = {"status": status}
+        
+        if started_at:
+            update_data["started_at"] = datetime.utcnow()
+        if completed_at:
+            update_data["completed_at"] = datetime.utcnow()
+        if result_summary:
+            update_data["result_summary"] = result_summary
+        
+        # 执行更新
+        with get_sync_session() as db:
+            db.execute(
+                update(ProcessingJob)
+                .where(ProcessingJob.job_id == job_id)
+                .values(**update_data)
+            )
+            db.commit()
+        
+        app_logger.info(f"更新processing_job状态: job_id={job_id}, status={status}")
+        
+    except Exception as e:
+        app_logger.error(f"更新processing_job状态失败: job_id={job_id}, error={e}")
+        # 不要抛出异常，避免影响主任务
 
 @celery_app.task(bind=True, max_retries=3)
-def update_vehicle_data_async(self, channel_id: int, force_update: bool = False, filters: Dict = None):
+def update_vehicle_data_async(self, channel_id: int, force_update: bool = False, filters: Dict = None, job_id: int = None):
     """
     车型数据更新异步任务
     
@@ -16,9 +60,14 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
         channel_id: 渠道ID
         force_update: 是否强制更新
         filters: 过滤条件
+        job_id: processing_job记录ID
     """
     try:
-        app_logger.info(f"🚗 开始执行车型更新任务: 渠道ID {channel_id}")
+        app_logger.info(f"🚗 开始执行车型更新任务: 渠道ID {channel_id}, job_id {job_id}")
+        
+        # 更新processing_job状态为运行中
+        if job_id:
+            _update_processing_job_status(job_id, "running", started_at=True)
         
         # 更新任务状态为运行中
         current_task.update_state(
@@ -28,7 +77,8 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
                 'total': 100,
                 'progress': 0,
                 'status': f'正在更新渠道 {channel_id} 的车型数据...',
-                'channel_id': channel_id
+                'channel_id': channel_id,
+                'job_id': job_id
             }
         )
         
@@ -46,6 +96,13 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
         # 执行更新
         result = asyncio.run(vehicle_update_service.update_vehicles_direct(update_request))
         
+        # 构建结果摘要
+        result_summary = f"总爬取: {result.total_crawled}, 新增: {result.new_vehicles}, 更新: {result.updated_vehicles}, 无变化: {result.unchanged_vehicles}"
+        
+        # 更新processing_job状态为完成
+        if job_id:
+            _update_processing_job_status(job_id, "completed", completed_at=True, result_summary=result_summary)
+        
         # 更新任务状态为完成
         return {
             'channel_id': channel_id,
@@ -57,11 +114,16 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
                 'unchanged_vehicles': result.unchanged_vehicles,
                 'channel_name': result.channel_name
             },
-            'message': f'渠道 {result.channel_name} 车型更新完成'
+            'message': f'渠道 {result.channel_name} 车型更新完成',
+            'job_id': job_id
         }
         
     except Exception as exc:
         app_logger.error(f"❌ 车型更新任务失败: {exc}")
+        
+        # 更新processing_job状态为失败
+        if job_id:
+            _update_processing_job_status(job_id, "failed", completed_at=True, result_summary=f"任务失败: {str(exc)}")
         
         # 更新任务状态为失败
         current_task.update_state(
@@ -69,6 +131,7 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
             meta={
                 'error': str(exc),
                 'channel_id': channel_id,
+                'job_id': job_id,
                 'message': f'渠道 {channel_id} 车型更新失败: {exc}'
             }
         )

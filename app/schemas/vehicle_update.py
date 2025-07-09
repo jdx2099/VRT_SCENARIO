@@ -71,6 +71,23 @@ class UpdateTaskSchema(BaseModel):
     status: str = Field(..., description="任务状态")
     message: str = Field(..., description="任务消息")
     created_at: datetime = Field(..., description="创建时间")
+    job_id: Optional[int] = Field(None, description="关联的processing_job记录ID")
+
+
+class ProcessingJobSchema(BaseModel):
+    """处理任务schema"""
+    job_id: int = Field(..., description="任务ID")
+    job_type: str = Field(..., description="任务类型")
+    status: str = Field(..., description="任务状态")
+    parameters: Optional[Dict[str, Any]] = Field(None, description="任务参数")
+    pipeline_version: str = Field(..., description="管道版本")
+    created_at: datetime = Field(..., description="创建时间")
+    started_at: Optional[datetime] = Field(None, description="开始时间")
+    completed_at: Optional[datetime] = Field(None, description="完成时间")
+    result_summary: Optional[str] = Field(None, description="结果摘要")
+    
+    class Config:
+        from_attributes = True
 
 
 class ChannelListSchema(BaseModel):

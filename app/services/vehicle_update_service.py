@@ -119,12 +119,30 @@ class VehicleUpdateService:
                 if not channel:
                     raise ValueError(f"渠道ID {update_request.channel_id} 在数据库中不存在")
                 
-                # 启动异步任务
+                # 创建processing_job记录
+                processing_job = ProcessingJob(
+                    job_type="vehicle_update",
+                    status="pending",
+                    parameters={
+                        "channel_id": update_request.channel_id,
+                        "force_update": update_request.force_update,
+                        "filters": update_request.filters or {}
+                    },
+                    pipeline_version="v1.0",
+                    created_by_user_id_fk=None  # 暂时没有用户系统
+                )
+                db.add(processing_job)
+                await db.flush()  # 获取job_id
+                
+                # 启动异步任务，传递job_id
                 task = update_vehicle_data_async.delay(
                     channel_id=update_request.channel_id,
                     force_update=update_request.force_update,
-                    filters=update_request.filters or {}
+                    filters=update_request.filters or {},
+                    job_id=processing_job.job_id  # 传递job_id
                 )
+                
+                await db.commit()
                 
                 # 创建任务记录
                 task_schema = UpdateTaskSchema(
@@ -132,10 +150,11 @@ class VehicleUpdateService:
                     channel_id=update_request.channel_id,
                     status="pending",
                     message=f"已启动 {channel.channel_name} 车型更新任务",
-                    created_at=datetime.utcnow()
+                    created_at=datetime.utcnow(),
+                    job_id=processing_job.job_id
                 )
             
-            self.logger.info(f"车型更新任务已启动: {task.id}")
+            self.logger.info(f"车型更新任务已启动: task_id={task.id}, job_id={processing_job.job_id}")
             
             return task_schema
             
