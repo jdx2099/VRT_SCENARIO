@@ -141,7 +141,7 @@ def update_vehicle_data_async(self, channel_id: int, force_update: bool = False,
 
 
 @celery_app.task(bind=True, max_retries=3)
-def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, max_pages: int = None):
+def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, max_pages: int = None, job_id: int = None):
     """
     原始评论爬取异步任务
     
@@ -149,9 +149,14 @@ def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, 
         channel_id: 渠道ID
         identifier_on_channel: 车型在渠道上的标识
         max_pages: 最大爬取页数限制
+        job_id: processing_job记录ID
     """
     try:
-        app_logger.info(f"🕷️ 开始执行评论爬取任务: 渠道ID {channel_id}, 车型 {identifier_on_channel}")
+        app_logger.info(f"🕷️ 开始执行评论爬取任务: 渠道ID {channel_id}, 车型 {identifier_on_channel}, job_id {job_id}")
+        
+        # 更新processing_job状态为运行中
+        if job_id:
+            _update_processing_job_status(job_id, "running", started_at=True)
         
         # 更新任务状态为运行中
         current_task.update_state(
@@ -162,7 +167,8 @@ def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, 
                 'progress': 0,
                 'status': f'正在爬取车型 {identifier_on_channel} 的评论数据...',
                 'channel_id': channel_id,
-                'identifier_on_channel': identifier_on_channel
+                'identifier_on_channel': identifier_on_channel,
+                'job_id': job_id
             }
         )
         
@@ -180,6 +186,13 @@ def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, 
         # 执行爬取
         result = asyncio.run(raw_comment_update_service.crawl_new_comments(crawl_request))
         
+        # 构建结果摘要
+        result_summary = f"总页数: {result.total_pages_crawled}, 总评论: {result.total_comments_found}, 新增: {result.new_comments_count}, 耗时: {result.crawl_duration}秒"
+        
+        # 更新processing_job状态为完成
+        if job_id:
+            _update_processing_job_status(job_id, "completed", completed_at=True, result_summary=result_summary)
+        
         # 更新任务状态为完成
         return {
             'channel_id': channel_id,
@@ -192,11 +205,16 @@ def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, 
                 'new_comments_count': result.new_comments_count,
                 'crawl_duration': result.crawl_duration
             },
-            'message': f'车型 {result.vehicle_channel_info.name_on_channel} 评论爬取完成，新增 {result.new_comments_count} 条评论'
+            'message': f'车型 {result.vehicle_channel_info.name_on_channel} 评论爬取完成，新增 {result.new_comments_count} 条评论',
+            'job_id': job_id
         }
         
     except Exception as exc:
         app_logger.error(f"❌ 评论爬取任务失败: {exc}")
+        
+        # 更新processing_job状态为失败
+        if job_id:
+            _update_processing_job_status(job_id, "failed", completed_at=True, result_summary=f"任务失败: {str(exc)}")
         
         # 更新任务状态为失败
         current_task.update_state(
@@ -205,6 +223,7 @@ def crawl_raw_comments_async(self, channel_id: int, identifier_on_channel: str, 
                 'error': str(exc),
                 'channel_id': channel_id,
                 'identifier_on_channel': identifier_on_channel,
+                'job_id': job_id,
                 'message': f'车型 {identifier_on_channel} 评论爬取失败: {exc}'
             }
         )

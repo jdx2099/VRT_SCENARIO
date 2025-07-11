@@ -121,14 +121,14 @@ class VehicleUpdateService:
                 
                 # 创建processing_job记录
                 processing_job = ProcessingJob(
-                    job_type="vehicle_update",
+                    job_type="vehicle_updating",
                     status="pending",
                     parameters={
                         "channel_id": update_request.channel_id,
                         "force_update": update_request.force_update,
                         "filters": update_request.filters or {}
                     },
-                    pipeline_version="v1.0",
+                    pipeline_version="1.0.0",
                     created_by_user_id_fk=None  # 暂时没有用户系统
                 )
                 db.add(processing_job)

@@ -10,6 +10,7 @@ from app.schemas.raw_comment_update import (
     RawCommentQueryRequest, RawCommentQueryResult,
     RawCommentCrawlRequest, RawCommentCrawlResult, RawCommentCrawlTaskSchema
 )
+from app.schemas.vehicle_update import ProcessingJobSchema
 from app.core.logging import app_logger
 
 router = APIRouter(prefix="/raw-comments", tags=["原始评论更新"])
@@ -158,6 +159,56 @@ async def crawl_new_comments_direct(crawl_request: RawCommentCrawlRequest) -> Ra
     except Exception as e:
         app_logger.error(f"❌ 原始评论直接爬取系统错误: {e}")
         raise HTTPException(status_code=500, detail="内部服务器错误")
+
+
+@router.get("/jobs/{job_id}", response_model=ProcessingJobSchema)
+async def get_processing_job(job_id: int) -> ProcessingJobSchema:
+    """
+    获取ProcessingJob详情
+    
+    Args:
+        job_id: 任务ID
+        
+    Returns:
+        ProcessingJob详情
+    """
+    try:
+        app_logger.info(f"🔍 查询ProcessingJob: job_id={job_id}")
+        
+        from app.core.database import AsyncSessionLocal
+        from app.models.vehicle_update import ProcessingJob
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(ProcessingJob).where(ProcessingJob.job_id == job_id)
+            )
+            processing_job = result.scalar_one_or_none()
+            
+            if not processing_job:
+                raise ValueError(f"未找到ProcessingJob: job_id={job_id}")
+            
+            job_schema = ProcessingJobSchema(
+                job_id=processing_job.job_id,
+                job_type=processing_job.job_type,
+                parameters=processing_job.parameters,
+                status=processing_job.status,
+                pipeline_version=processing_job.pipeline_version,
+                created_at=processing_job.created_at,
+                started_at=processing_job.started_at,
+                completed_at=processing_job.completed_at,
+                result_summary=processing_job.result_summary
+            )
+            
+            app_logger.info(f"✅ 查询ProcessingJob完成: {job_schema.status}")
+            return job_schema
+            
+    except ValueError as e:
+        app_logger.error(f"❌ 参数验证失败: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        app_logger.error(f"❌ 查询ProcessingJob失败: {e}")
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
 @router.get("/tasks/{task_id}/status")

@@ -52,21 +52,48 @@ class RawCommentUpdateService:
             if not vehicle_detail:
                 raise ValueError(f"未找到匹配的车型: channel_id={crawl_request.channel_id}, identifier={crawl_request.identifier_on_channel}")
             
+            # 创建processing_job记录
+            async with AsyncSessionLocal() as db:
+                from app.models.vehicle_update import ProcessingJob
+                
+                processing_job = ProcessingJob(
+                    job_type="comment_crawling",
+                    parameters={
+                        "channel_id": crawl_request.channel_id,
+                        "identifier_on_channel": crawl_request.identifier_on_channel,
+                        "max_pages": crawl_request.max_pages,
+                        "vehicle_channel_id": vehicle_detail.vehicle_channel_id,
+                        "vehicle_name": vehicle_detail.name_on_channel
+                    },
+                    status="pending",
+                    pipeline_version="1.0.0",
+                    created_by_user_id_fk=None  # 暂时设置为空，因为users表为空
+                )
+                
+                db.add(processing_job)
+                await db.commit()
+                await db.refresh(processing_job)
+                
+                job_id = processing_job.job_id
+                self.logger.info(f"📝 创建processing_job记录: job_id={job_id}")
+            
             # 导入Celery任务（避免循环导入）
             from app.tasks.crawler_tasks import crawl_raw_comments_async
             from app.schemas.raw_comment_update import RawCommentCrawlTaskSchema
             from datetime import datetime
             
-            # 启动异步任务
+            # 启动异步任务，传递job_id
             task = crawl_raw_comments_async.delay(
                 channel_id=crawl_request.channel_id,
                 identifier_on_channel=crawl_request.identifier_on_channel,
-                max_pages=crawl_request.max_pages
+                max_pages=crawl_request.max_pages,
+                job_id=job_id
             )
             
             # 创建任务记录
             task_schema = RawCommentCrawlTaskSchema(
                 task_id=task.id,
+                job_id=job_id,
                 channel_id=crawl_request.channel_id,
                 identifier_on_channel=crawl_request.identifier_on_channel,
                 status="pending",
@@ -74,7 +101,7 @@ class RawCommentUpdateService:
                 created_at=datetime.utcnow()
             )
             
-            self.logger.info(f"🚀 原始评论爬取任务已启动: {task.id}")
+            self.logger.info(f"🚀 原始评论爬取任务已启动: task_id={task.id}, job_id={job_id}")
             
             return task_schema
             

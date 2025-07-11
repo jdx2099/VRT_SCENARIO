@@ -136,6 +136,7 @@ class RawCommentCrawlResult(BaseModel):
 class RawCommentCrawlTaskSchema(BaseModel):
     """原始评论爬取任务模式"""
     task_id: str = Field(..., description="任务ID")
+    job_id: int = Field(..., description="processing_job记录ID")
     channel_id: int = Field(..., description="渠道ID")
     identifier_on_channel: str = Field(..., description="车型在渠道上的标识")
     status: str = Field(..., description="任务状态")
@@ -146,6 +147,7 @@ class RawCommentCrawlTaskSchema(BaseModel):
         json_schema_extra = {
             "example": {
                 "task_id": "abc123-def456-ghi789",
+                "job_id": 1,
                 "channel_id": 1,
                 "identifier_on_channel": "s7855", 
                 "status": "pending",
