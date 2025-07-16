@@ -1,13 +1,14 @@
-# VRT 汽车评论数据爬虫系统 - 使用指南
+# VRT 汽车评论数据爬虫系统 - 完整使用指南
 
 ## 🎯 系统概述
 
-VRT是一个基于FastAPI + Celery + MySQL的汽车评论数据爬虫和分析系统，支持从汽车之家等渠道自动爬取车型数据和用户评论。
+VRT是一个基于FastAPI + Celery + MySQL的汽车评论数据爬虫和分析系统，支持从汽车之家等渠道自动爬取车型数据和用户评论，并具备定时任务功能。
 
 ### ✨ 核心功能
 - **车型数据管理**: 自动爬取和更新汽车渠道的车型信息
 - **评论数据采集**: 批量爬取车型用户评论，支持增量更新  
 - **异步任务处理**: 支持大数据量的非阻塞爬取
+- **定时任务系统**: 基于Celery Beat的自动化任务调度
 - **数据查询统计**: 提供丰富的数据查询和统计接口
 
 ---
@@ -19,12 +20,23 @@ VRT是一个基于FastAPI + Celery + MySQL的汽车评论数据爬虫和分析�
 - MySQL 8.0+
 - Redis 6.0+
 
-### 2. 一键启动（推荐）
+### 2. Windows环境启动（推荐）
 ```bash
-python start_project.py
+# 使用Windows专用启动脚本
+scripts/start_windows.bat
+
+# 或使用Python脚本
+python scripts/start_celery_windows.py
 ```
 
-### 3. 手动启动
+### 3. Linux/Mac环境启动
+```bash
+# 使用tmux启动脚本
+chmod +x scripts/start_all.sh
+./scripts/start_all.sh
+```
+
+### 4. 手动启动
 ```bash
 # 1. 安装依赖
 pip install -r requirements.txt
@@ -33,17 +45,17 @@ pip install -r requirements.txt
 DATABASE_URL=mysql+asyncmy://root:password@localhost:3306/vrt_db
 REDIS_URL=redis://localhost:6379/0
 
-# 3. 初始化数据库
-python init_database.py
+# 3. 启动FastAPI应用
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# 4. 启动服务
-python main.py
+# 4. 启动Celery Worker（Windows兼容）
+celery -A app.tasks.celery_app worker --loglevel=info --pool=solo --concurrency=1
 
-# 5. 启动异步任务（新终端）
-celery -A app.tasks.celery_app worker --loglevel=info
+# 5. 启动Celery Beat调度器
+celery -A app.tasks.celery_app beat --loglevel=info --scheduler=celery.beat.PersistentScheduler
 ```
 
-### 4. 验证启动
+### 5. 验证启动
 - API文档: http://localhost:8000/docs
 - 健康检查: http://localhost:8000/api/admin/health
 
@@ -122,6 +134,85 @@ POST /api/raw-comments/crawl/direct
 # 直接返回完整结果
 ```
 
+### ⏰ 定时任务管理
+
+#### 获取定时任务状态
+```bash
+GET /api/scheduled-tasks/status
+```
+
+#### 手动触发车型更新
+```bash
+POST /api/scheduled-tasks/vehicle-update/trigger
+{
+  "channel_ids": [1, 2],
+  "force_update": false
+}
+```
+
+#### 查询任务执行状态
+```bash
+GET /api/scheduled-tasks/tasks/{task_id}/status
+```
+
+#### 获取最近执行记录
+```bash
+GET /api/scheduled-tasks/recent-executions?limit=10
+```
+
+#### 触发健康检查
+```bash
+GET /api/scheduled-tasks/health-check
+```
+
+---
+
+## ⏰ 定时任务系统
+
+### 📋 功能特性
+
+#### 1. 自动车型数据更新
+- **执行频率**: 每天凌晨2点
+- **功能**: 自动更新所有渠道的车型数据
+- **配置**: 可指定特定渠道或更新所有渠道
+
+#### 2. 系统健康检查
+- **执行频率**: 每小时
+- **功能**: 检查数据库和Redis连接状态
+- **用途**: 监控系统健康状态
+
+### 📊 定时任务配置
+
+#### 当前配置的任务
+
+| 任务名称 | 执行频率 | 功能描述 | 参数 |
+|---------|---------|---------|------|
+| `daily-vehicle-update` | 每24小时 | 更新所有渠道车型数据 | 所有渠道，不强制更新 |
+| `hourly-health-check` | 每1小时 | 系统健康检查 | 无参数 |
+
+#### 修改定时任务配置
+
+编辑 `app/tasks/celery_app.py` 文件中的 `beat_schedule` 配置：
+
+```python
+beat_schedule={
+    # 每天凌晨2点执行车型数据更新
+    'daily-vehicle-update': {
+        'task': 'app.tasks.scheduled_tasks.scheduled_vehicle_update',
+        'schedule': 86400.0,  # 24小时 = 86400秒
+        'args': (None, False),  # 更新所有渠道，不强制更新
+        'options': {'queue': 'default'}
+    },
+    
+    # 每小时执行一次健康检查
+    'hourly-health-check': {
+        'task': 'app.tasks.scheduled_tasks.health_check',
+        'schedule': 3600.0,  # 1小时 = 3600秒
+        'options': {'queue': 'default'}
+    },
+}
+```
+
 ---
 
 ## 🎭 使用场景指南
@@ -174,14 +265,8 @@ curl -X POST "http://localhost:8000/api/raw-comments/crawl/direct" \
 
 ### 快速测试脚本
 ```bash
-# 测试车型更新
-python test_api_simple.py
-
-# 测试评论爬取完整流程
-python test_full_crawl.py
-
-# 验证数据库数据
-python check_comments.py
+# 测试定时任务功能
+python test_scheduled_tasks.py
 ```
 
 ### 常用测试车型
@@ -220,14 +305,20 @@ redis-cli ping
 - 确认渠道配置是否完整
 - 查看日志: `logs/app.log`
 
-#### 4. Celery任务不执行
+#### 4. Celery任务不执行（Windows环境）
 ```bash
+# 使用Windows兼容配置
+celery -A app.tasks.celery_app worker --loglevel=info --pool=solo --concurrency=1
+
 # 检查Worker状态
 celery -A app.tasks.celery_app inspect active
-
-# 重启Worker
-celery -A app.tasks.celery_app worker --loglevel=info
 ```
+
+#### 5. 定时任务不执行
+- 检查Celery Beat是否运行
+- 检查Redis连接是否正常
+- 检查Worker是否运行
+- 查看日志文件
 
 ### 日志查看
 ```bash
@@ -236,6 +327,12 @@ tail -f logs/app.log
 
 # Celery日志
 celery -A app.tasks.celery_app events
+
+# 查看Celery Worker日志
+tail -f logs/celery_worker.log
+
+# 查看Celery Beat日志
+tail -f logs/celery_beat.log
 ```
 
 ---
@@ -252,6 +349,9 @@ curl http://localhost:8000/api/vehicle-update/channels
 
 # 统计某车型评论数
 curl http://localhost:8000/api/raw-comments/vehicle/1/s3170/count
+
+# 获取定时任务状态
+curl http://localhost:8000/api/scheduled-tasks/status
 ```
 
 ### 数据库直接查询
@@ -268,6 +368,20 @@ FROM vehicle_channel_details v
 LEFT JOIN raw_comments r ON v.vehicle_channel_id = r.vehicle_channel_id_fk
 GROUP BY v.vehicle_channel_id
 ORDER BY comment_count DESC;
+
+-- 查看最近的定时任务执行记录
+SELECT 
+    job_id,
+    job_type,
+    status,
+    created_at,
+    started_at,
+    completed_at,
+    result_summary
+FROM processing_jobs 
+WHERE job_type IN ('scheduled_vehicle_update', 'health_check')
+ORDER BY created_at DESC
+LIMIT 10;
 ```
 
 ---
@@ -279,11 +393,13 @@ ORDER BY comment_count DESC;
 - 设置合理的`max_pages`限制
 - 定期监控任务执行状态
 - 配置日志轮转
+- 启用定时任务自动维护
 
 ### 2. 开发调试
 - 使用直接接口快速验证
 - 先用小数据集测试
 - 查看详细日志排查问题
+- Windows环境使用solo池
 
 ### 3. 数据采集策略
 - 新车型: 全量爬取建立基线
@@ -294,6 +410,13 @@ ORDER BY comment_count DESC;
 - 控制并发爬取任务数量
 - 设置合理的延迟避免反爬虫
 - 监控数据库和Redis性能
+- Windows环境使用单进程Worker
+
+### 5. 定时任务管理
+- 监控定时任务执行状态
+- 定期检查任务执行记录
+- 配置合理的执行频率
+- 设置任务超时和重试机制
 
 ---
 
@@ -303,16 +426,61 @@ ORDER BY comment_count DESC;
 vrt_scenario/
 ├── app/                    # 主应用
 │   ├── api/endpoints/      # API接口
+│   │   ├── vehicle_update.py      # 车型更新接口
+│   │   ├── raw_comment_update.py  # 评论爬取接口
+│   │   └── scheduled_tasks.py     # 定时任务接口
 │   ├── services/           # 业务逻辑
+│   │   ├── vehicle_update_service.py      # 车型更新服务
+│   │   └── raw_comment_update_service.py  # 评论爬取服务
 │   ├── models/             # 数据模型
+│   │   ├── vehicle_update.py      # 车型相关模型
+│   │   └── raw_comment_update.py  # 评论相关模型
 │   ├── schemas/            # 数据校验
 │   ├── tasks/              # 异步任务
+│   │   ├── celery_app.py         # Celery配置
+│   │   ├── crawler_tasks.py      # 爬虫任务
+│   │   └── scheduled_tasks.py    # 定时任务
 │   └── utils/              # 工具模块
+│       └── channel_parsers/      # 渠道解析器
+├── scripts/                # 启动脚本
+│   ├── start_all.sh              # Linux/Mac启动脚本
+│   ├── start_windows.bat         # Windows启动脚本
+│   └── start_celery_windows.py   # Windows Celery启动器
 ├── logs/                   # 日志文件
 ├── main.py                 # 应用入口
-├── start_project.py        # 启动脚本
+├── test_scheduled_tasks.py # 定时任务测试脚本
 └── requirements.txt        # 依赖文件
 ```
+
+---
+
+## ⚠️ 注意事项
+
+### 1. 服务依赖
+- **Redis**: 必须运行，用于任务队列
+- **MySQL**: 必须运行，用于数据存储
+- **Celery Worker**: 必须运行，用于执行任务
+- **Celery Beat**: 必须运行，用于调度任务
+
+### 2. 时间配置
+- 系统使用 `Asia/Shanghai` 时区
+- 定时任务基于UTC时间执行
+- 建议在服务器上设置正确的时区
+
+### 3. 资源管理
+- 定时任务会消耗系统资源
+- 建议在低峰期执行大型任务
+- 监控系统资源使用情况
+
+### 4. 错误处理
+- 任务失败会自动重试（最多3次）
+- 失败的任务会记录在数据库中
+- 可以通过API查看失败原因
+
+### 5. Windows兼容性
+- 使用solo池替代prefork池
+- 建议使用单进程Worker
+- 使用Windows专用启动脚本
 
 ---
 
@@ -321,8 +489,15 @@ vrt_scenario/
 VRT系统提供了完整的汽车评论数据采集解决方案：
 
 ✅ **双模式接口**: 异步(生产) + 直接(测试)  
-✅ **完整功能**: 车型管理 + 评论爬取  
+✅ **完整功能**: 车型管理 + 评论爬取 + 定时任务  
 ✅ **易于使用**: 一键启动 + 详细文档  
-✅ **生产就绪**: 异步任务 + 错误处理
+✅ **生产就绪**: 异步任务 + 错误处理 + 自动调度  
+✅ **跨平台**: 支持Windows/Linux/Mac环境
 
-通过本指南，您可以快速上手并充分利用系统的各项功能！ 
+通过本指南，您可以快速上手并充分利用系统的各项功能！
+
+---
+
+**版本**: 2.2.0  
+**更新时间**: 2025-01-02  
+**维护者**: VRT开发团队 

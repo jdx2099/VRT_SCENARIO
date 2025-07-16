@@ -222,6 +222,32 @@ class RawCommentUpdateService:
             self.logger.error(f"❌ 统计原始评论数量失败: {e}")
             raise
     
+    async def get_vehicles_by_channel(self, channel_id: int) -> List[VehicleChannelDetail]:
+        """
+        获取指定渠道下的所有车型
+        
+        Args:
+            channel_id: 渠道ID
+            
+        Returns:
+            车型列表
+        """
+        try:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(VehicleChannelDetail).where(
+                        VehicleChannelDetail.channel_id_fk == channel_id
+                    ).order_by(VehicleChannelDetail.name_on_channel)
+                )
+                vehicles = result.scalars().all()
+                
+                self.logger.info(f"📊 获取到渠道 {channel_id} 下的 {len(vehicles)} 个车型")
+                return vehicles
+                
+        except Exception as e:
+            self.logger.error(f"❌ 获取渠道车型列表失败: {e}")
+            raise
+    
     async def crawl_new_comments(self, crawl_request: RawCommentCrawlRequest) -> RawCommentCrawlResult:
         """
         爬取新的原始评论
