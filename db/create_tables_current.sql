@@ -23,7 +23,7 @@ CREATE TABLE `users` (
 CREATE TABLE `channels` (
     `channel_id` INT AUTO_INCREMENT PRIMARY KEY,
     `channel_name` VARCHAR(255) NOT NULL UNIQUE COMMENT '渠道名称，如：汽车之家',
-    `channel_base_url` VARCHAR(512) NULL COMMENT '渠道的基础网址',
+    `channel_base_url` TEXT NULL COMMENT '渠道基础URL或配置信息',
     `channel_description` TEXT NULL COMMENT '渠道描述信息',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='评论来源渠道信息表';
