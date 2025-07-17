@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.database import get_db
 from app.core.logging import app_logger
-from app.models.vehicle_sync import VehicleChannelDetail
+from app.models.vehicle_update import VehicleChannelDetail
 
 
 async def fix_empty_brand_names():

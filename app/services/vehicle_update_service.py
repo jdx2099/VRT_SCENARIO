@@ -287,7 +287,8 @@ class VehicleUpdateService:
                             url_on_channel=vehicle_data.get("vehicle_url"),
                             temp_brand_name=vehicle_data.get("brand_name"),
                             temp_series_name=vehicle_data.get("manufactor"),  # 厂商名称
-                            temp_model_year=None  # 年款信息暂时为空，后续可以从车型名称中解析
+                            temp_model_year=None,  # 年款信息暂时为空，后续可以从车型名称中解析
+                            last_comment_crawled_at=None  # 新车型默认从未爬取过评论
                         )
                         db.add(new_vehicle)
                         new_count += 1

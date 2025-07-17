@@ -30,6 +30,7 @@ class VehicleChannelInfo(BaseModel):
     temp_brand_name: Optional[str] = Field(None, description="临时品牌名称")
     temp_series_name: Optional[str] = Field(None, description="临时车系名称")
     temp_model_year: Optional[str] = Field(None, description="临时年款")
+    last_comment_crawled_at: Optional[datetime] = Field(None, description="上次成功爬取评论的时间")
     
     class Config:
         from_attributes = True

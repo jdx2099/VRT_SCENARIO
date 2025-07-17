@@ -159,7 +159,8 @@ class RawCommentUpdateService:
                     url_on_channel=vehicle_detail.url_on_channel,
                     temp_brand_name=vehicle_detail.temp_brand_name,
                     temp_series_name=vehicle_detail.temp_series_name,
-                    temp_model_year=vehicle_detail.temp_model_year
+                    temp_model_year=vehicle_detail.temp_model_year,
+                    last_comment_crawled_at=vehicle_detail.last_comment_crawled_at
                 )
                 
                 # 构建查询结果
@@ -311,7 +312,8 @@ class RawCommentUpdateService:
                     url_on_channel=vehicle_detail.url_on_channel,
                     temp_brand_name=vehicle_detail.temp_brand_name,
                     temp_series_name=vehicle_detail.temp_series_name,
-                    temp_model_year=vehicle_detail.temp_model_year
+                    temp_model_year=vehicle_detail.temp_model_year,
+                    last_comment_crawled_at=vehicle_detail.last_comment_crawled_at
                 )
                 
                 crawl_duration = time.time() - start_time

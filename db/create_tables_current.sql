@@ -90,6 +90,7 @@ CREATE TABLE `vehicle_channel_details` (
     `temp_brand_name` VARCHAR(255) NULL COMMENT '临时冗余字段：品牌名称',
     `temp_series_name` VARCHAR(255) NULL COMMENT '临时冗余字段：车系名称',
     `temp_model_year` VARCHAR(50) NULL COMMENT '临时冗余字段：年款',
+    `last_comment_crawled_at` TIMESTAMP NULL COMMENT '上次成功爬取评论的时间，NULL表示从未爬取过',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_channel_identifier` (`channel_id_fk`, `identifier_on_channel`),
@@ -210,4 +211,13 @@ CREATE TABLE `user_personalized_processed_data` (
 -- 1. processing_jobs表新增 pipeline_version 字段 (VARCHAR(50), 默认'1.0.0')
 -- 2. raw_comments表新增 processing_status 字段 (ENUM, 默认'new') 
 -- 3. 用于支持数据爬取和大模型处理的解耦管理
+-- =================================================================
+
+-- =================================================================
+-- 变更说明
+-- =================================================================
+-- V2.2 相对于 V2.1 的变更：
+-- 1. vehicle_channel_details表新增 last_comment_crawled_at 字段 (TIMESTAMP NULL)
+-- 2. 用于记录每个车型最后一次成功爬取评论的时间，NULL表示从未爬取过
+-- 3. 为后续定时爬取评论功能提供时间锚点
 -- =================================================================

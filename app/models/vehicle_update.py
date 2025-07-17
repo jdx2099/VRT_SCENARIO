@@ -63,6 +63,7 @@ class VehicleChannelDetail(Base):
     temp_brand_name = Column(String(255), nullable=True, comment="临时冗余字段：品牌名称")
     temp_series_name = Column(String(255), nullable=True, comment="临时冗余字段：车系名称")
     temp_model_year = Column(String(50), nullable=True, comment="临时冗余字段：年款")
+    last_comment_crawled_at = Column(DateTime, nullable=True, comment="上次成功爬取评论的时间，NULL表示从未爬取过")
     created_at = Column(DateTime, nullable=False, default=func.current_timestamp())
     updated_at = Column(DateTime, nullable=False, default=func.current_timestamp(), onupdate=func.current_timestamp())
     
