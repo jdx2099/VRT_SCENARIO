@@ -165,6 +165,47 @@ GET /api/scheduled-tasks/recent-executions?limit=10
 GET /api/scheduled-tasks/health-check
 ```
 
+### ⏰ 定时评论爬取任务管理
+
+#### 获取定时评论爬取任务状态
+```bash
+GET /api/scheduled-comment-tasks/status
+```
+
+#### 手动触发评论爬取任务
+```bash
+POST /api/scheduled-comment-tasks/manual-crawl/trigger
+{
+  "vehicle_channel_ids": [1, 2, 3],
+  "max_pages_per_vehicle": 10
+}
+```
+
+#### 查询评论爬取任务执行状态
+```bash
+GET /api/scheduled-comment-tasks/tasks/{task_id}/status
+```
+
+#### 获取车型评论爬取统计信息
+```bash
+GET /api/scheduled-comment-tasks/vehicle-statistics
+```
+
+#### 获取未爬取过的车型列表
+```bash
+GET /api/scheduled-comment-tasks/uncrawled-vehicles?limit=20
+```
+
+#### 获取最早爬取过的车型列表
+```bash
+GET /api/scheduled-comment-tasks/oldest-crawled-vehicles?limit=20
+```
+
+#### 获取最近的评论爬取任务执行记录
+```bash
+GET /api/scheduled-comment-tasks/recent-executions?limit=10
+```
+
 ---
 
 ## ⏰ 定时任务系统
@@ -188,6 +229,7 @@ GET /api/scheduled-tasks/health-check
 | 任务名称 | 执行频率 | 功能描述 | 参数 |
 |---------|---------|---------|------|
 | `daily-vehicle-update` | 每24小时 | 更新所有渠道车型数据 | 所有渠道，不强制更新 |
+| `daily-comment-crawl` | 每24小时 | 爬取20个车型的评论 | 20个车型，优先未爬取的 |
 | `hourly-health-check` | 每1小时 | 系统健康检查 | 无参数 |
 
 #### 修改定时任务配置
@@ -201,6 +243,14 @@ beat_schedule={
         'task': 'app.tasks.scheduled_tasks.scheduled_vehicle_update',
         'schedule': 86400.0,  # 24小时 = 86400秒
         'args': (None, False),  # 更新所有渠道，不强制更新
+        'options': {'queue': 'default'}
+    },
+    
+    # 每天晚上10点执行评论爬取任务
+    'daily-comment-crawl': {
+        'task': 'app.tasks.scheduled_comment_tasks.scheduled_comment_crawl',
+        'schedule': 86400.0,  # 24小时 = 86400秒
+        'args': (20,),  # 爬取20个车型的评论
         'options': {'queue': 'default'}
     },
     
@@ -267,6 +317,9 @@ curl -X POST "http://localhost:8000/api/raw-comments/crawl/direct" \
 ```bash
 # 测试定时任务功能
 python test_scheduled_tasks.py
+
+# 测试定时评论爬取任务功能
+python test_scheduled_comment_tasks.py
 ```
 
 ### 常用测试车型
@@ -352,6 +405,12 @@ curl http://localhost:8000/api/raw-comments/vehicle/1/s3170/count
 
 # 获取定时任务状态
 curl http://localhost:8000/api/scheduled-tasks/status
+
+# 获取定时评论爬取任务状态
+curl http://localhost:8000/api/scheduled-comment-tasks/status
+
+# 获取车型评论爬取统计
+curl http://localhost:8000/api/scheduled-comment-tasks/vehicle-statistics
 ```
 
 ### 数据库直接查询
