@@ -160,7 +160,7 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
                 crawl_request = RawCommentCrawlRequest(
                     channel_id=vehicle.channel_id_fk,
                     identifier_on_channel=vehicle.identifier_on_channel,
-                    max_pages=10  # 每个车型最多爬取10页评论
+                    max_pages=None  # 不限制页数
                 )
                 
                 # 执行爬取（使用同步方式调用异步服务）

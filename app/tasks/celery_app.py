@@ -49,10 +49,10 @@ celery_app.conf.update(
             'options': {'queue': 'celery'}
         },
         
-        # 每天晚上10点执行评论爬取任务
+        # 每天晚上11点执行评论爬取任务
         'daily-comment-crawl': {
             'task': 'app.tasks.scheduled_comment_tasks.scheduled_comment_crawl',
-            'schedule': crontab(hour=22, minute=0),  # 每天晚上10点
+            'schedule': crontab(hour=23, minute=0),  # 每天晚上11点
             'args': (20,),  # 爬取20个车型的评论
             'options': {'queue': 'celery'}
         },
