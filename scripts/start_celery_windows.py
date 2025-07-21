@@ -79,7 +79,7 @@ def main():
     print("💡 提示:")
     print("   - 按 Ctrl+C 停止所有服务")
     print("   - 访问 http://localhost:8000/docs 查看API文档")
-    print("   - 运行 python test_scheduled_tasks.py 测试功能")
+    print("   - 访问 http://localhost:8000/api/v1/scheduled-comment-tasks/status 查看任务状态")
     
     try:
         # 等待进程结束

@@ -75,7 +75,7 @@ async def trigger_vehicle_update_now(request: VehicleUpdateRequest) -> Dict[str,
         app_logger.info(f"🚀 手动触发车型更新任务: channels={request.channel_ids}, force_update={request.force_update}")
         
         # 导入定时任务函数
-        from app.tasks.scheduled_tasks import scheduled_vehicle_update
+        from app.tasks.scheduled_vehicle_tasks import scheduled_vehicle_update
         
         # 启动任务
         task = scheduled_vehicle_update.delay(request.channel_ids, request.force_update)
@@ -142,7 +142,7 @@ async def trigger_health_check() -> Dict[str, Any]:
         app_logger.info("🏥 手动触发系统健康检查")
         
         # 导入健康检查函数
-        from app.tasks.scheduled_tasks import health_check
+        from app.tasks.scheduled_vehicle_tasks import health_check
         
         # 执行健康检查
         result = health_check.delay()
