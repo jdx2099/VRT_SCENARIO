@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # 数据库配置 (使用asyncmy驱动)
     DATABASE_URL: str = "mysql+asyncmy://root:Pass1234@localhost:3306/vrt_db"
     
+    # 同步数据库配置 (使用pymysql驱动，用于Celery任务)
+    SYNC_DATABASE_URL: str = "mysql+pymysql://root:Pass1234@localhost:3306/vrt_db"
+    
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
     

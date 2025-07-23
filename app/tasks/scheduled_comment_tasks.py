@@ -1,5 +1,5 @@
 """
-定时评论爬取任务模块
+定时评论爬取任务模块 - 同步版本
 基于Celery Beat实现周期性评论爬取任务
 """
 from celery import current_task
@@ -7,16 +7,15 @@ from app.tasks.celery_app import celery_app
 from app.core.logging import app_logger
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
-import asyncio
 import time
 
 
 @celery_app.task(bind=True, max_retries=3)
 def scheduled_comment_crawl(self, max_vehicles: int = 20):
     """
-    定时评论爬取任务
+    定时评论爬取任务 - 同步版本
     
-    每天晚上10点执行，从vehicle_channel_details表中找到：
+    每天晚上11点执行，从vehicle_channel_details表中找到：
     1. 优先选择last_comment_crawled_at为null的车型（未爬取过）
     2. 如果都爬取过，选择距离现在爬取时间最久的车型
     
@@ -25,9 +24,9 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
     """
     from app.core.database import get_sync_session
     from app.models.vehicle_update import ProcessingJob, VehicleChannelDetail
-    from app.services.raw_comment_update_service import raw_comment_update_service
+    from app.services.raw_comment_update_service_sync import raw_comment_update_service_sync
     from app.schemas.raw_comment_update import RawCommentCrawlRequest
-    from sqlalchemy import select, asc
+    from sqlalchemy import asc
     
     try:
         app_logger.info(f"⏰ 开始执行定时评论爬取任务: max_vehicles={max_vehicles}")
@@ -70,17 +69,14 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
             app_logger.error(f"❌ 创建任务记录失败: {e}")
             raise
         
-        # 查询待爬取的车型
+        # 查询待爬取的车型 - 同步版本
         vehicles_to_crawl = []
         try:
             with get_sync_session() as db:
                 # 首先查询未爬取过的车型（last_comment_crawled_at为null）
-                uncrawled_result = db.execute(
-                    select(VehicleChannelDetail)
-                    .where(VehicleChannelDetail.last_comment_crawled_at.is_(None))
-                    .limit(max_vehicles)
-                )
-                uncrawled_vehicles = uncrawled_result.scalars().all()
+                uncrawled_vehicles = db.query(VehicleChannelDetail).filter(
+                    VehicleChannelDetail.last_comment_crawled_at.is_(None)
+                ).limit(max_vehicles).all()
                 
                 app_logger.info(f"🔍 找到 {len(uncrawled_vehicles)} 个未爬取过的车型")
                 
@@ -89,13 +85,9 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
                     remaining_count = max_vehicles - len(uncrawled_vehicles)
                     
                     # 查询已爬取但时间最久的车型
-                    oldest_crawled_result = db.execute(
-                        select(VehicleChannelDetail)
-                        .where(VehicleChannelDetail.last_comment_crawled_at.is_not(None))
-                        .order_by(asc(VehicleChannelDetail.last_comment_crawled_at))
-                        .limit(remaining_count)
-                    )
-                    oldest_vehicles = oldest_crawled_result.scalars().all()
+                    oldest_vehicles = db.query(VehicleChannelDetail).filter(
+                        VehicleChannelDetail.last_comment_crawled_at.is_not(None)
+                    ).order_by(asc(VehicleChannelDetail.last_comment_crawled_at)).limit(remaining_count).all()
                     
                     app_logger.info(f"🔍 补充 {len(oldest_vehicles)} 个最早爬取的车型")
                     
@@ -160,11 +152,11 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
                 crawl_request = RawCommentCrawlRequest(
                     channel_id=vehicle.channel_id_fk,
                     identifier_on_channel=vehicle.identifier_on_channel,
-                    max_pages=None  # 不限制页数
+                    max_pages=None  # 限制爬取前5页，可根据需要调整
                 )
                 
-                # 执行爬取（使用同步方式调用异步服务）
-                crawl_result = asyncio.run(raw_comment_update_service.crawl_new_comments(crawl_request))
+                # 执行爬取 - 使用同步服务
+                crawl_result = raw_comment_update_service_sync.crawl_new_comments(crawl_request)
                 
                 # 更新车型的最后爬取时间
                 try:
@@ -294,7 +286,7 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
 @celery_app.task(bind=True, max_retries=3)
 def manual_comment_crawl(self, vehicle_channel_ids: List[int] = None, max_pages_per_vehicle: int = 10):
     """
-    手动触发评论爬取任务
+    手动触发评论爬取任务 - 同步版本
     
     Args:
         vehicle_channel_ids: 要爬取的车型ID列表，如果为None则自动选择
@@ -302,9 +294,8 @@ def manual_comment_crawl(self, vehicle_channel_ids: List[int] = None, max_pages_
     """
     from app.core.database import get_sync_session
     from app.models.vehicle_update import ProcessingJob, VehicleChannelDetail
-    from app.services.raw_comment_update_service import raw_comment_update_service
+    from app.services.raw_comment_update_service_sync import raw_comment_update_service_sync
     from app.schemas.raw_comment_update import RawCommentCrawlRequest
-    from sqlalchemy import select
     import time
     
     try:
@@ -343,19 +334,14 @@ def manual_comment_crawl(self, vehicle_channel_ids: List[int] = None, max_pages_
             with get_sync_session() as db:
                 if vehicle_channel_ids:
                     # 使用指定的车型ID列表
-                    result = db.execute(
-                        select(VehicleChannelDetail)
-                        .where(VehicleChannelDetail.vehicle_channel_id.in_(vehicle_channel_ids))
-                    )
-                    vehicles = result.scalars().all()
+                    vehicles = db.query(VehicleChannelDetail).filter(
+                        VehicleChannelDetail.vehicle_channel_id.in_(vehicle_channel_ids)
+                    ).all()
                 else:
                     # 自动选择未爬取或最早爬取的车型
-                    result = db.execute(
-                        select(VehicleChannelDetail)
-                        .where(VehicleChannelDetail.last_comment_crawled_at.is_(None))
-                        .limit(10)
-                    )
-                    vehicles = result.scalars().all()
+                    vehicles = db.query(VehicleChannelDetail).filter(
+                        VehicleChannelDetail.last_comment_crawled_at.is_(None)
+                    ).limit(10).all()
                 
                 vehicles_to_crawl = list(vehicles)
                 
@@ -416,8 +402,8 @@ def manual_comment_crawl(self, vehicle_channel_ids: List[int] = None, max_pages_
                     max_pages=max_pages_per_vehicle
                 )
                 
-                # 执行爬取（使用同步方式调用异步服务）
-                crawl_result = asyncio.run(raw_comment_update_service.crawl_new_comments(crawl_request))
+                # 执行爬取 - 使用同步服务
+                crawl_result = raw_comment_update_service_sync.crawl_new_comments(crawl_request)
                 
                 # 更新车型的最后爬取时间
                 try:

@@ -25,7 +25,7 @@ engine = create_async_engine(
 
 # 创建同步数据库引擎（用于Celery任务）
 sync_engine = create_engine(
-    settings.DATABASE_URL.replace("mysql+asyncmy://", "mysql+pymysql://"),
+    settings.SYNC_DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_recycle=3600,
