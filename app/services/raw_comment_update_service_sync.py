@@ -269,7 +269,6 @@ class RawCommentUpdateServiceSync:
         try:
             # 解析channel_base_url中的JSON配置
             config = json.loads(channel.channel_base_url)
-            self.logger.info(f"🔍 渠道配置内容: {config}")
             return config
         except json.JSONDecodeError:
             self.logger.error(f"❌ 渠道配置JSON解析失败: channel_id={channel_id}, content={channel.channel_base_url}")

@@ -12,11 +12,19 @@ def setup_logging():
     # 移除默认处理器
     logger.remove()
     
+    # 禁用第三方库的冗余日志
+    logger.disable("sqlalchemy.engine")
+    logger.disable("sqlalchemy.pool")
+    logger.disable("sqlalchemy.dialects")
+    logger.disable("urllib3.connectionpool")
+    logger.disable("httpx")
+    
     # 添加控制台处理器
     logger.add(
         sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        level=settings.LOG_LEVEL
+        level=settings.LOG_LEVEL,
+        colorize=True
     )
     
     # 添加文件处理器
@@ -26,7 +34,9 @@ def setup_logging():
         level=settings.LOG_LEVEL,
         rotation="100 MB",
         retention="30 days",
-        compression="zip"
+        compression="zip",
+        backtrace=True,
+        diagnose=True
     )
     
     return logger
