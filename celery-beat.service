@@ -1,0 +1,18 @@
+[Unit]
+Description=Celery Beat Service
+After=network.target
+
+[Service]
+Type=forking
+User=your_user
+Group=your_group
+WorkingDirectory=/path/to/your/project
+Environment=PATH=/path/to/your/venv/bin
+ExecStart=/path/to/your/venv/bin/celery -A app.tasks.celery_app beat --loglevel=info --logfile=logs/celery_beat.log --pidfile=celery_beat.pid
+ExecStop=/bin/kill -TERM $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 
