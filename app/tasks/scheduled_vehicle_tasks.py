@@ -24,6 +24,10 @@ def scheduled_vehicle_update(self, channel_ids: List[int] = None, force_update: 
     
     try:
         app_logger.info(f"⏰ 开始执行定时车型更新任务: channels={channel_ids}, force_update={force_update}")
+        
+        # 检查是否已有对应的ProcessingJob记录（避免重复创建）
+        celery_task_id = self.request.id
+        
         current_task.update_state(
             state='PROGRESS',
             meta={
@@ -32,9 +36,11 @@ def scheduled_vehicle_update(self, channel_ids: List[int] = None, force_update: 
                 'progress': 0,
                 'status': '正在执行定时车型更新...',
                 'channel_ids': channel_ids,
-                'force_update': force_update
+                'force_update': force_update,
+                'celery_task_id': celery_task_id
             }
         )
+        
         # 获取所有渠道 - 使用同步服务
         if not channel_ids:
             channels = vehicle_update_service_sync.get_supported_channels()
@@ -42,30 +48,49 @@ def scheduled_vehicle_update(self, channel_ids: List[int] = None, force_update: 
         total_channels = len(channel_ids)
         completed_channels = 0
         results = []
+        
         for channel_id in channel_ids:
             # 每个渠道都写入一条processing_jobs
             job_id = None
             try:
-                # 创建任务记录 - 同步版本
+                # 检查是否已有对应的ProcessingJob记录
                 with get_sync_session() as db:
-                    processing_job = ProcessingJob(
-                        job_type="scheduled_vehicle_update",
-                        status="running",
-                        parameters={
-                            "channel_id": channel_id,
-                            "force_update": force_update,
-                            "celery_task_id": self.request.id
-                        },
-                        pipeline_version="1.0.0",
-                        created_by_user_id_fk=None,
-                        started_at=datetime.now(timezone.utc)
-                    )
-                    db.add(processing_job)
-                    db.commit()
-                    db.refresh(processing_job)
-                    job_id = processing_job.job_id
-                
-                app_logger.info(f"📝 创建定时任务记录: job_id={job_id}, channel_id={channel_id}")
+                    # 查找是否已有相同celery_task_id和channel_id的记录
+                    existing_job = db.query(ProcessingJob).filter(
+                        ProcessingJob.job_type == "scheduled_vehicle_update",
+                        ProcessingJob.parameters.contains({
+                            "celery_task_id": celery_task_id,
+                            "channel_id": channel_id
+                        })
+                    ).first()
+                    
+                    if existing_job:
+                        # 如果找到现有记录，使用它
+                        job_id = existing_job.job_id
+                        app_logger.info(f"🔄 发现现有任务记录，继续执行: job_id={job_id}, channel_id={channel_id}")
+                        
+                        # 如果状态是running，说明任务被中断后重新启动
+                        if existing_job.status == "running":
+                            app_logger.info(f"🔄 任务被中断后重新启动，继续执行: job_id={job_id}")
+                    else:
+                        # 创建新的任务记录
+                        processing_job = ProcessingJob(
+                            job_type="scheduled_vehicle_update",
+                            status="running",
+                            parameters={
+                                "channel_id": channel_id,
+                                "force_update": force_update,
+                                "celery_task_id": celery_task_id
+                            },
+                            pipeline_version="1.0.0",
+                            created_by_user_id_fk=None,
+                            started_at=datetime.now(timezone.utc)
+                        )
+                        db.add(processing_job)
+                        db.commit()
+                        db.refresh(processing_job)
+                        job_id = processing_job.job_id
+                        app_logger.info(f"📝 创建新的定时任务记录: job_id={job_id}, channel_id={channel_id}")
                 
                 # 执行更新 - 使用同步服务
                 update_request = UpdateRequestSchema(

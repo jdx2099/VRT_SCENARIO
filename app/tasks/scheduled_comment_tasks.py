@@ -31,6 +31,49 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
     try:
         app_logger.info(f"⏰ 开始执行定时评论爬取任务: max_vehicles={max_vehicles}")
         
+        # 检查是否已有对应的ProcessingJob记录（避免重复创建）
+        job_id = None
+        celery_task_id = self.request.id
+        
+        try:
+            with get_sync_session() as db:
+                # 查找是否已有相同celery_task_id的记录
+                existing_job = db.query(ProcessingJob).filter(
+                    ProcessingJob.job_type == "scheduled_comment_crawl",
+                    ProcessingJob.parameters.contains({"celery_task_id": celery_task_id})
+                ).first()
+                
+                if existing_job:
+                    # 如果找到现有记录，使用它
+                    job_id = existing_job.job_id
+                    app_logger.info(f"🔄 发现现有任务记录，继续执行: job_id={job_id}, celery_task_id={celery_task_id}")
+                    
+                    # 如果状态是running，说明任务被中断后重新启动
+                    if existing_job.status == "running":
+                        app_logger.info(f"🔄 任务被中断后重新启动，继续执行: job_id={job_id}")
+                else:
+                    # 创建新的任务记录
+                    processing_job = ProcessingJob(
+                        job_type="scheduled_comment_crawl",
+                        status="running",
+                        parameters={
+                            "max_vehicles": max_vehicles,
+                            "celery_task_id": celery_task_id
+                        },
+                        pipeline_version="1.0.0",
+                        created_by_user_id_fk=None,
+                        started_at=datetime.now(timezone.utc)
+                    )
+                    db.add(processing_job)
+                    db.commit()
+                    db.refresh(processing_job)
+                    job_id = processing_job.job_id
+                    app_logger.info(f"📝 创建新的定时评论爬取任务记录: job_id={job_id}")
+            
+        except Exception as e:
+            app_logger.error(f"❌ 处理任务记录失败: {e}")
+            raise
+        
         # 更新任务状态
         current_task.update_state(
             state='PROGRESS',
@@ -39,35 +82,11 @@ def scheduled_comment_crawl(self, max_vehicles: int = 20):
                 'total': max_vehicles,
                 'progress': 0,
                 'status': '正在查询待爬取车型...',
-                'max_vehicles': max_vehicles
+                'max_vehicles': max_vehicles,
+                'job_id': job_id,
+                'celery_task_id': celery_task_id
             }
         )
-        
-        # 创建processing_job记录
-        job_id = None
-        try:
-            with get_sync_session() as db:
-                processing_job = ProcessingJob(
-                    job_type="scheduled_comment_crawl",
-                    status="running",
-                    parameters={
-                        "max_vehicles": max_vehicles,
-                        "celery_task_id": self.request.id
-                    },
-                    pipeline_version="1.0.0",
-                    created_by_user_id_fk=None,
-                    started_at=datetime.now(timezone.utc)
-                )
-                db.add(processing_job)
-                db.commit()
-                db.refresh(processing_job)
-                job_id = processing_job.job_id
-            
-            app_logger.info(f"📝 创建定时评论爬取任务记录: job_id={job_id}")
-            
-        except Exception as e:
-            app_logger.error(f"❌ 创建任务记录失败: {e}")
-            raise
         
         # 查询待爬取的车型 - 同步版本
         vehicles_to_crawl = []
