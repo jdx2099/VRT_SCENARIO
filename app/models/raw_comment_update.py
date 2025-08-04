@@ -10,11 +10,11 @@ from enum import Enum
 
 class ProcessingStatus(str, Enum):
     """处理状态枚举"""
-    NEW = "new"              # 未处理
-    PROCESSING = "processing" # 处理中
-    COMPLETED = "completed"   # 已完成
-    FAILED = "failed"         # 处理失败
-    SKIPPED = "skipped"       # 跳过处理
+    NEW = "NEW"              # 未处理
+    PROCESSING = "PROCESSING" # 处理中
+    COMPLETED = "COMPLETED"   # 已完成
+    FAILED = "FAILED"         # 处理失败
+    SKIPPED = "SKIPPED"       # 跳过处理
 
 
 class RawComment(Base):

@@ -636,4 +636,4 @@ class RawCommentUpdateService:
 
 
 # 全局服务实例
-raw_comment_update_service = RawCommentUpdateService() 
+raw_comment_update_service = RawCommentUpdateService()

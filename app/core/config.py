@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     LOCAL_LLM_MODEL_TYPE: str = "llama"  # llama, chatglm, baichuan, etc.
     EMBEDDING_MODEL_PATH: Optional[str] = None
     
+    # 语义搜索配置
+    EMBEDDING_API_BASE: str = "http://127.0.0.1:9997/v1"
+    EMBEDDING_API_KEY: str = "EMPTY"
+    EMBEDDING_MODEL_NAME: str = "Qwen3-Embedding-8B-local"
+    SEMANTIC_SIMILARITY_THRESHOLD: float = 1.0
+    
     # 向量数据库配置
     VECTOR_DB_HOST: str = "localhost"
     VECTOR_DB_PORT: int = 19530
@@ -53,4 +59,4 @@ class Settings(BaseSettings):
     
     model_config = {"env_file": ".env"}
 
-settings = Settings() 
+settings = Settings()

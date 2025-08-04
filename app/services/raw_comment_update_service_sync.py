@@ -555,4 +555,4 @@ class RawCommentUpdateServiceSync:
 
 
 # 全局服务实例
-raw_comment_update_service_sync = RawCommentUpdateServiceSync() 
+raw_comment_update_service_sync = RawCommentUpdateServiceSync()
