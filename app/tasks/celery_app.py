@@ -18,7 +18,7 @@ celery_app = Celery(
 
 # 手动导入任务模块以确保任务被注册
 try:
-    from app.tasks import crawler_tasks, scheduled_vehicle_tasks, scheduled_comment_tasks
+    from app.tasks import crawler_tasks, scheduled_vehicle_tasks, scheduled_comment_tasks, health_check_tasks
     print(f"✅ 任务模块已导入: {len([t for t in celery_app.tasks if not t.startswith('celery.')])} 个任务")
     print(f"   已注册的任务: {[t for t in celery_app.tasks if not t.startswith('celery.')]}")
 except ImportError as e:
@@ -47,7 +47,7 @@ celery_app.conf.update(
         # 每周日凌晨2点执行车型数据更新
         'weekly-vehicle-update': {
             'task': 'app.tasks.scheduled_vehicle_tasks.scheduled_vehicle_update',
-            'schedule': crontab(hour=2, minute=0, day_of_week=0),  # 每周日凌晨2点 (0=周日)
+            'schedule': crontab(hour=3, minute=0, day_of_week=0),  # 每周日凌晨2点 (0=周日)
             'args': (None, False),  # 更新所有渠道，不强制更新
             'options': {'queue': 'celery'}
         },
@@ -55,14 +55,14 @@ celery_app.conf.update(
         # 每天晚上11点执行评论爬取任务
         'daily-comment-crawl': {
             'task': 'app.tasks.scheduled_comment_tasks.scheduled_comment_crawl',
-            'schedule': crontab(hour=23, minute=0),  # 每天晚上11点
-            'args': (20,),  # 爬取20个车型的评论
+            'schedule': crontab(hour=1, minute=20),  # 每天晚上11点
+            'args': (2,),  # 爬取20个车型的评论
             'options': {'queue': 'celery'}
         },
         
         # 每小时执行一次健康检查
         'hourly-health-check': {
-            'task': 'app.tasks.scheduled_vehicle_tasks.health_check',
+            'task': 'app.tasks.health_check_tasks.health_check',
             'schedule': 3600.0,  # 1小时 = 3600秒
             'options': {'queue': 'celery'}
         },
@@ -71,4 +71,4 @@ celery_app.conf.update(
     # Beat调度器配置
     beat_max_loop_interval=300,  # 最大循环间隔5分钟
     beat_sync_every=1,  # 每次同步的任务数量
-) 
+)

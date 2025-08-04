@@ -42,6 +42,7 @@ CREATE TABLE `vehicles` (
 -- 4. 产品功能表 (标准)
 CREATE TABLE `product_features` (
     `product_feature_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `feature_code` VARCHAR(255) NOT NULL UNIQUE COMMENT '产品功能的业务编码，业务上唯一', -- <== 新增字段
     `feature_name` VARCHAR(255) NOT NULL COMMENT '产品功能的名称，如：蓝牙、智能钥匙',
     `feature_description` TEXT NULL COMMENT '功能的详细描述（可用于生成嵌入）',
     `feature_embedding` TEXT NULL COMMENT '功能的文本嵌入向量，以JSON数组或特定格式的文本存储',

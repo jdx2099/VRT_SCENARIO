@@ -4,5 +4,6 @@
 from . import crawler_tasks
 from . import scheduled_vehicle_tasks
 from . import scheduled_comment_tasks
+from . import health_check_tasks
 
-__all__ = ['crawler_tasks', 'scheduled_vehicle_tasks', 'scheduled_comment_tasks'] 
+__all__ = ['crawler_tasks', 'scheduled_vehicle_tasks', 'scheduled_comment_tasks', 'health_check_tasks']

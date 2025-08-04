@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     
     # Celery配置
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
     
     # 本地大模型配置
     LOCAL_LLM_MODEL_PATH: str = "/path/to/local/model"

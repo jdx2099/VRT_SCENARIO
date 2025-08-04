@@ -142,7 +142,7 @@ async def trigger_health_check() -> Dict[str, Any]:
         app_logger.info("🏥 手动触发系统健康检查")
         
         # 导入健康检查函数
-        from app.tasks.scheduled_vehicle_tasks import health_check
+        from app.tasks.health_check_tasks import health_check
         
         # 执行健康检查
         result = health_check.delay()
@@ -230,4 +230,4 @@ def _format_schedule(seconds: float) -> str:
     elif seconds < 86400:
         return f"{seconds/3600:.1f}小时"
     else:
-        return f"{seconds/86400:.1f}天" 
+        return f"{seconds/86400:.1f}天"
