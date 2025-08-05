@@ -82,4 +82,5 @@ celerybeat.pid
 Pipfile.lock
 
 # PEP 582
-__pypackages__/ 
+__pypackages__/ db/vectorDB/
+db/vectorDB/

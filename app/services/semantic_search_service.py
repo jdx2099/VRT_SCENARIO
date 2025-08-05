@@ -2,6 +2,7 @@
 语义搜索服务 - 同步版本
 专门用于Celery任务，实现评论文本的语义相似度检索
 """
+import os
 import json
 import re
 from typing import List, Dict, Optional, Tuple
@@ -27,6 +28,7 @@ class SemanticSearchService:
         self.logger = app_logger
         self.embeddings = None
         self.vector_store = None
+        self.persist_directory = "/home/jdx/VRT_SCENARIO/db/vectorDB"
         self._initialize_embeddings()
     
     def _initialize_embeddings(self):
@@ -72,22 +74,48 @@ class SemanticSearchService:
             raise
     
     def _create_vector_store(self) -> Chroma:
-        """创建向量存储"""
+        """创建或加载向量存储"""
         try:
+            # 确保持久化目录存在
+            os.makedirs(self.persist_directory, exist_ok=True)
+            
+            # 检查是否已存在持久化的向量数据库
+            if os.path.exists(self.persist_directory) and os.listdir(self.persist_directory):
+                self.logger.info(f"🔄 从持久化存储加载向量数据库: {self.persist_directory}")
+                try:
+                    vector_store = Chroma(
+                        persist_directory=self.persist_directory,
+                        embedding_function=self.embeddings
+                    )
+                    # 验证向量存储是否有效
+                    collection = vector_store._collection
+                    if collection.count() > 0:
+                        self.logger.info(f"✅ 成功加载向量数据库，包含 {collection.count()} 个文档")
+                        return vector_store
+                    else:
+                        self.logger.warning("⚠️ 持久化向量数据库为空，将重新创建")
+                except Exception as load_error:
+                    self.logger.warning(f"⚠️ 加载持久化向量数据库失败: {load_error}，将重新创建")
+            
+            # 创建新的向量数据库
             documents = self._load_product_features_from_db()
             if not documents:
                 raise ValueError("没有可用的产品功能数据")
             
-            self.logger.info(f"正在创建向量存储，包含 {len(documents)} 个文档...")
+            self.logger.info(f"🔨 正在创建新的向量存储，包含 {len(documents)} 个文档...")
             vector_store = Chroma.from_documents(
                 documents=documents,
-                embedding=self.embeddings
+                embedding=self.embeddings,
+                persist_directory=self.persist_directory
             )
-            self.logger.info("✅ 向量存储创建成功")
+            
+            # 持久化向量数据库
+            vector_store.persist()
+            self.logger.info(f"✅ 向量存储创建并持久化成功，存储路径: {self.persist_directory}")
             return vector_store
             
         except Exception as e:
-            self.logger.error(f"❌ 创建向量存储失败: {e}")
+            self.logger.error(f"❌ 创建/加载向量存储失败: {e}")
             raise
     
     def get_vector_store(self) -> Chroma:

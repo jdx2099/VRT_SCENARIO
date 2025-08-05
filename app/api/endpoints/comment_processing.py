@@ -9,6 +9,7 @@ from app.tasks.scheduled_comment_processing_tasks import (
     scheduled_comment_semantic_processing,
     get_comment_processing_status
 )
+from app.services.semantic_search_service import semantic_search_service
 from app.core.logging import app_logger
 
 router = APIRouter(prefix="/comment-processing", tags=["评论语义处理"])
@@ -32,6 +33,27 @@ class ProcessingStatusResponse(BaseModel):
     statistics: Dict[str, Any] = Field(description="统计信息")
     timestamp: str = Field(description="时间戳")
     job_details: Optional[Dict[str, Any]] = Field(default=None, description="任务详情")
+
+
+class SemanticSearchRequest(BaseModel):
+    """语义搜索请求模型"""
+    comment_text: str = Field(description="评论文本")
+    top_k: int = Field(default=5, ge=1, le=20, description="返回结果数量，1-20之间")
+
+
+class SemanticSearchResult(BaseModel):
+    """语义搜索结果模型"""
+    feature_code: str = Field(description="功能代码")
+    feature_name: str = Field(description="功能名称")
+    feature_description: str = Field(description="功能描述")
+    similarity_score: float = Field(description="相似度分数")
+
+
+class SemanticSearchResponse(BaseModel):
+    """语义搜索响应模型"""
+    query_text: str = Field(description="查询文本")
+    results: list[SemanticSearchResult] = Field(description="搜索结果")
+    total_count: int = Field(description="结果总数")
 
 
 @router.post("/start-semantic-processing", response_model=CommentProcessingResponse)
@@ -156,3 +178,44 @@ async def manual_processing(request: CommentProcessingRequest):
     except Exception as e:
         app_logger.error(f"❌ 手动评论语义处理失败: {e}")
         raise HTTPException(status_code=500, detail=f"手动处理失败: {str(e)}")
+
+
+@router.post("/semantic-search", response_model=SemanticSearchResponse)
+async def semantic_search(request: SemanticSearchRequest):
+    """
+    语义搜索API
+    
+    根据输入的评论文本，搜索最相似的产品功能
+    """
+    try:
+        app_logger.info(f"🔍 执行语义搜索: {request.comment_text[:50]}...")
+        
+        # 执行语义搜索
+        search_results = semantic_search_service.search_similar_features(
+            request.comment_text, 
+            k=request.top_k
+        )
+        
+        # 转换结果格式
+        results = []
+        for doc, score in search_results:
+            result = SemanticSearchResult(
+                feature_code=doc.metadata.get("id", ""),
+                feature_name=doc.metadata.get("功能模块名称", ""),
+                feature_description=doc.page_content,
+                similarity_score=float(score)
+            )
+            results.append(result)
+        
+        response = SemanticSearchResponse(
+            query_text=request.comment_text,
+            results=results,
+            total_count=len(results)
+        )
+        
+        app_logger.info(f"✅ 语义搜索完成: 找到{len(results)}个相似功能")
+        return response
+        
+    except Exception as e:
+        app_logger.error(f"❌ 语义搜索失败: {e}")
+        raise HTTPException(status_code=500, detail=f"语义搜索失败: {str(e)}")

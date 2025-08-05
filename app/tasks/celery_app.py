@@ -38,7 +38,7 @@ celery_app.conf.update(
     worker_max_tasks_per_child=1000,
     
     # Windows兼容性配置
-    worker_pool='solo',  # 在Windows上使用solo池而不是prefork
+    worker_pool='prefork',  # 在Windows上使用solo池而不是prefork
     broker_connection_retry_on_startup=True,
     task_always_eager=False,  # 确保任务异步执行
     
@@ -55,7 +55,7 @@ celery_app.conf.update(
         # 每天晚上11点执行评论爬取任务
         'daily-comment-crawl': {
             'task': 'app.tasks.scheduled_comment_tasks.scheduled_comment_crawl',
-            'schedule': crontab(hour=10, minute=55),  # 每天晚上11点
+            'schedule': crontab(hour=23, minute=55),  # 每天晚上11点
             'args': (1,),  # 爬取20个车型的评论
             'options': {'queue': 'celery'}
         },
@@ -70,7 +70,7 @@ celery_app.conf.update(
         # 每天凌晨1点执行评论语义处理任务
         'daily-comment-semantic-processing': {
             'task': 'app.tasks.scheduled_comment_processing_tasks.scheduled_comment_semantic_processing',
-            'schedule': crontab(hour=16, minute=0),  # 每天凌晨1点
+            'schedule': crontab(hour=23, minute=57),  # 每天凌晨1点
             'args': (5,),  # 每次处理20条评论
             'options': {'queue': 'celery'}
         },
